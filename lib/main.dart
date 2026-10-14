@@ -56,6 +56,7 @@ import 'features/onboarding/onboarding_screen.dart';
 import 'features/profiles/profile_launch_gate.dart';
 import 'features/shell/root_shell.dart';
 import 'features/watch_together/ui/party_bar.dart';
+import 'features/watch_together/watch_together_controller.dart';
 
 Future<void> main() async {
   // Run inside a guarded zone so uncaught async errors land in the shareable
@@ -724,17 +725,18 @@ class _WatchAppState extends State<WatchApp> with WidgetsBindingObserver {
             ? Stack(
                 children: [
                   ?child,
-                  const Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: SafeArea(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: PartyBar(),
+                  if (WatchTogetherController.isEnabled)
+                    const Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: SafeArea(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: PartyBar(),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               )
             : (child ?? const SizedBox.shrink());
