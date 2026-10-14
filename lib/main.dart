@@ -331,10 +331,9 @@ class _WatchAppState extends State<WatchApp> with WidgetsBindingObserver {
   bool _handledLaunchTaps = false; // route a notification-tap launch once
   DateTime? _lastSubscriptionCheck;
 
-  /// How stale the local library may be before a launch/resume re-pull. Short
-  /// enough that switching devices shows fresh data on open, long enough to
-  /// debounce app-switching so the DB isn't hammered.
-  static const Duration _syncFreshness = Duration(minutes: 2);
+  /// Maximum age of the local cloud snapshot before a launch/resume pull.
+  /// This balances cross-device freshness against repeated database reads.
+  static const Duration _syncFreshness = Duration(minutes: 10);
   static const Duration _subscriptionCheckCooldown = Duration(minutes: 15);
 
   Future<void> _checkSubscriptions({bool syncCloudStream = false}) async {
@@ -461,20 +460,28 @@ class _WatchAppState extends State<WatchApp> with WidgetsBindingObserver {
   /// Cross-device freshness: when the app returns to the foreground, re-pull the
   /// library if it's older than [_syncFreshness] (debounced inside
   /// [MyListStore.pullFromCloudIfStale], so rapid app-switching doesn't hammer
-  /// the DB). Also flushes any un-synced My List adds.
+  /// the DB). Also retries locally queued cloud writes.
   void _syncOnResume() => _syncLibrary(maxAge: _syncFreshness);
 
   void _syncLibrary({required Duration maxAge}) {
     if (!sl.isRegistered<AuthCubit>() || !sl<AuthCubit>().state.isLoggedIn) {
       return;
     }
-    unawaited(sl<MyListStore>().pullFromCloudIfStale(maxAge: maxAge));
-    unawaited(sl<WatchHistory>().pullFromCloudIfStale(maxAge: maxAge));
-    unawaited(sl<ReadHistory>().pullFromCloudIfStale(maxAge: maxAge));
-    // My List categories ride the same trigger — two small SELECTs, and they
-    // have to arrive with the list they label.
-    unawaited(sl<CategoryStore>().pullFromCloudIfStale(maxAge: maxAge));
-    unawaited(sl<MyListStore>().retryPending());
+    unawaited(() async {
+      await Future.wait([
+        sl<MyListStore>().pullFromCloudIfStale(maxAge: maxAge),
+        sl<WatchHistory>().pullFromCloudIfStale(maxAge: maxAge),
+        sl<ReadHistory>().pullFromCloudIfStale(maxAge: maxAge),
+        // My List categories ride the same trigger — two small SELECTs, and
+        // they have to arrive with the list they label.
+        sl<CategoryStore>().pullFromCloudIfStale(maxAge: maxAge),
+      ]);
+      await Future.wait([
+        sl<MyListStore>().retryPending(),
+        sl<WatchHistory>().retryPending(),
+        sl<ReadHistory>().retryPending(),
+      ]);
+    }());
   }
 
   /// Init deps, then (for returning users) kick off the Home fetch so its rows
@@ -521,7 +528,13 @@ class _WatchAppState extends State<WatchApp> with WidgetsBindingObserver {
             sl<ReadHistory>().pullFromCloudIfStale(maxAge: _syncFreshness),
             sl<CategoryStore>().pullFromCloudIfStale(maxAge: _syncFreshness),
           ]).timeout(const Duration(seconds: 6));
-          unawaited(sl<MyListStore>().retryPending());
+          unawaited(
+            Future.wait([
+              sl<MyListStore>().retryPending(),
+              sl<WatchHistory>().retryPending(),
+              sl<ReadHistory>().retryPending(),
+            ]),
+          );
         }
 
         // tvOS: never block the splash on cloud I/O — sync after the shell is up.
@@ -596,7 +609,13 @@ class _WatchAppState extends State<WatchApp> with WidgetsBindingObserver {
         await sl<WatchHistory>().pullFromCloud();
         await sl<ReadHistory>().pullFromCloud();
         await sl<CategoryStore>().pullFromCloud();
-        unawaited(sl<MyListStore>().retryPending());
+        unawaited(
+          Future.wait([
+            sl<MyListStore>().retryPending(),
+            sl<WatchHistory>().retryPending(),
+            sl<ReadHistory>().retryPending(),
+          ]),
+        );
         if (!sl.isRegistered<AppMode>() ||
             !sl<AppMode>().isTv ||
             tvosProvidersReady) {
