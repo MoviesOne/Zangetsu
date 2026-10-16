@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +24,7 @@ import '../../core/zmode/zmode_prefs.dart';
 import '../../l10n/ui_strings.dart';
 import '../../l10n/l10n.dart';
 import '../../core/ui/nav_prefs.dart';
+import '../../core/ui/frosted_surface.dart';
 import '../downloads/downloads_screen.dart';
 import '../history/history_screen.dart';
 import '../profiles/viewer_profiles_screen.dart';
@@ -622,39 +622,28 @@ class _FloatingDock extends StatelessWidget {
     final pillPad = 9 - 5 * t;
     return Padding(
       padding: EdgeInsets.fromLTRB(side, 0, side, bottomInset + 12),
-      child: ClipRRect(
+      child: FakeFrost(
+        key: const ValueKey('dockPill'),
         borderRadius: BorderRadius.circular(26),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 6, vertical: pillPad),
-            decoration: BoxDecoration(
-              // Light enough that content ghosts through even on dark
-              // screens (My List / Settings) — 0.75 read as a solid slab
-              // anywhere the page behind wasn't bright.
-              color: AppColors.surface.withValues(alpha: 0.55),
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-            ),
-            child: Row(
-              children: [
-                for (final tab in first) _item(context, tab, labels),
-                if (centre != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    // Sized down rather than scaled in place: it is the tallest
-                    // thing in the row, so leaving it at 50 would hold the
-                    // whole dock open no matter what the tabs did.
-                    child: SizedBox(
-                      width: fab,
-                      height: fab,
-                      child: FittedBox(fit: BoxFit.contain, child: centre!),
-                    ),
-                  ),
-                for (final tab in rest) _item(context, tab, labels),
-              ],
-            ),
-          ),
+        opacity: 0.55,
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: pillPad),
+        child: Row(
+          children: [
+            for (final tab in first) _item(context, tab, labels),
+            if (centre != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                // Sized down rather than scaled in place: it is the tallest
+                // thing in the row, so leaving it at 50 would hold the
+                // whole dock open no matter what the tabs did.
+                child: SizedBox(
+                  width: fab,
+                  height: fab,
+                  child: FittedBox(fit: BoxFit.contain, child: centre!),
+                ),
+              ),
+            for (final tab in rest) _item(context, tab, labels),
+          ],
         ),
       ),
     );

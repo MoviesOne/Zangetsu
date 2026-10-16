@@ -463,8 +463,9 @@ void main() {
     await tester.pumpWidget(wrap(const RootShell()));
     await tester.pumpAndSettle();
 
-    // Scope to the dock — it is the only blurred pill in the tree.
-    final dock = find.byType(BackdropFilter);
+    // Scope to the dock pill — flat fill now, no live blur (perf), so the
+    // scope is its key rather than a BackdropFilter.
+    final dock = find.byKey(const ValueKey('dockPill'));
     expect(dock, findsOneWidget);
 
     // A box worth aiming at — checked COLLAPSED, which is the state that
