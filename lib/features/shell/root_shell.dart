@@ -90,6 +90,9 @@ class _RootShellState extends State<RootShell>
       ? sl<NavPrefs>()
       : NavPrefs();
 
+  /// Cached for the scroll callback: don't read local storage during scrolling.
+  late bool _keepDockExpanded = _navPrefs.keepDockExpanded;
+
   /// Double-back-to-exit: timestamp of the last root Back press. A second Back
   /// within 2s exits the app; the first just shows the "press back again" toast.
   DateTime? _lastBackPress;
@@ -183,6 +186,11 @@ class _RootShellState extends State<RootShell>
   /// land somewhere that still exists instead of showing a page with no item.
   void _onTabsChanged() {
     if (!mounted) return;
+    final keepDockExpanded = _navPrefs.keepDockExpanded;
+    if (keepDockExpanded != _keepDockExpanded) {
+      _keepDockExpanded = keepDockExpanded;
+      DockScrollCollapse.reset();
+    }
     final visible = _visibleTabs();
     setState(() {
       if (!visible.contains(_tab)) _tab = visible.first;
@@ -312,7 +320,10 @@ class _RootShellState extends State<RootShell>
           body: NotificationListener<ScrollNotification>(
             // One place, so no screen has to know the dock exists. Returns
             // false throughout — it reads the scroll, never eats it.
-            onNotification: DockScrollCollapse.onNotification,
+            onNotification: (notification) => DockScrollCollapse.onNotification(
+              notification,
+              enabled: !_keepDockExpanded,
+            ),
             child: Builder(
               builder: (context) {
                 final visible = _visibleTabs();
@@ -426,7 +437,7 @@ class _RootShellState extends State<RootShell>
                         child: ValueListenableBuilder<bool>(
                           valueListenable: dockCollapsedByScroll,
                           builder: (context, collapsed, child) => _FloatingDock(
-                            collapsed: collapsed,
+                            collapsed: collapsed && !_keepDockExpanded,
                             tabs: _visibleTabs(),
                             active: _tab,
                             onSelected: _onTabSelected,
