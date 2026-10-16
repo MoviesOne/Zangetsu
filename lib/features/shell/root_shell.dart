@@ -285,6 +285,9 @@ class _RootShellState extends State<RootShell>
     if (sl<AppMode>().isTv) {
       return deferContent ? const SizedBox.expand() : const RootShellTv();
     }
+    if (deferContent) {
+      return ColoredBox(color: AppColors.bg, child: const SizedBox.expand());
+    }
     return PopScope(
       // Intercept Back at the app root: first press toasts, second exits.
       canPop: false,
@@ -306,48 +309,46 @@ class _RootShellState extends State<RootShell>
           // Content runs under the floating dock (screens keep their own bottom
           // padding so the last row scrolls clear of it).
           extendBody: true,
-          body: deferContent
-              ? const SizedBox.expand()
-              : NotificationListener<ScrollNotification>(
-                  // One place, so no screen has to know the dock exists. Returns
-                  // false throughout — it reads the scroll, never eats it.
-                  onNotification: DockScrollCollapse.onNotification,
-                  child: Builder(
-                    builder: (context) {
-                      final visible = _visibleTabs();
-                      final active = visible.indexOf(_tab);
-                      return AnimatedBuilder(
-                        animation: _switch,
-                        builder: (context, child) {
-                          final v = _switch.value;
-                          // Incoming tab fades in from 0.4 and slides up 20px. Never blanks.
-                          return Opacity(
-                            opacity: 0.4 + 0.6 * v,
-                            child: Transform.translate(
-                              offset: Offset(0, (1 - v) * 20),
-                              child: child,
-                            ),
-                          );
-                        },
-                        // RepaintBoundary → the page is a single cached layer the transition
-                        // just composites (opacity + translate), so no repaint per frame.
-                        child: RepaintBoundary(
-                          child: IndexedStack(
-                            // indexOf can be -1 for one frame if the mode flipped before
-                            // the listener ran; clamp rather than throw.
-                            index: active < 0 ? 0 : active,
-                            children: _pagesFor(
-                              visible,
-                              sl.isRegistered<ViewerProfileStore>()
-                                  ? sl<ViewerProfileStore>().activeId
-                                  : 'default',
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+          body: NotificationListener<ScrollNotification>(
+            // One place, so no screen has to know the dock exists. Returns
+            // false throughout — it reads the scroll, never eats it.
+            onNotification: DockScrollCollapse.onNotification,
+            child: Builder(
+              builder: (context) {
+                final visible = _visibleTabs();
+                final active = visible.indexOf(_tab);
+                return AnimatedBuilder(
+                  animation: _switch,
+                  builder: (context, child) {
+                    final v = _switch.value;
+                    // Incoming tab fades in from 0.4 and slides up 20px. Never blanks.
+                    return Opacity(
+                      opacity: 0.4 + 0.6 * v,
+                      child: Transform.translate(
+                        offset: Offset(0, (1 - v) * 20),
+                        child: child,
+                      ),
+                    );
+                  },
+                  // RepaintBoundary → the page is a single cached layer the transition
+                  // just composites (opacity + translate), so no repaint per frame.
+                  child: RepaintBoundary(
+                    child: IndexedStack(
+                      // indexOf can be -1 for one frame if the mode flipped before
+                      // the listener ran; clamp rather than throw.
+                      index: active < 0 ? 0 : active,
+                      children: _pagesFor(
+                        visible,
+                        sl.isRegistered<ViewerProfileStore>()
+                            ? sl<ViewerProfileStore>().activeId
+                            : 'default',
+                      ),
+                    ),
                   ),
-                ),
+                );
+              },
+            ),
+          ),
           bottomNavigationBar: ValueListenableBuilder<bool>(
             valueListenable: dockHiddenBySection,
             builder: (context, sectionOpen, _) {

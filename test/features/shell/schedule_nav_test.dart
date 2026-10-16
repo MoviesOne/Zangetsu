@@ -26,6 +26,7 @@ import 'package:watch_app/core/playback/playback_prefs.dart';
 import 'package:watch_app/core/playback/search_history.dart';
 import 'package:watch_app/core/playback/search_prefs.dart';
 import 'package:watch_app/core/playback/search_source_prefs.dart';
+import 'package:watch_app/core/profiles/profile_shell_scope.dart';
 import 'package:watch_app/core/profiles/viewer_profile.dart';
 import 'package:watch_app/features/profiles/viewer_profiles_screen.dart';
 import 'package:watch_app/core/provider/cloudstream_provider.dart';
@@ -455,6 +456,24 @@ void main() {
 
     expect(dockLabel('Schedule'), findsNothing);
     expect(dockLabel('Sources'), findsOneWidget);
+  });
+
+  testWidgets('profile launch gate hides the entire phone shell', (
+    tester,
+  ) async {
+    sl.registerSingleton<AppMode>(const AppMode(isTv: false));
+    await tester.pumpWidget(
+      wrap(const ProfileShellScope(deferContent: true, child: RootShell())),
+    );
+
+    expect(find.byType(Scaffold), findsNothing);
+    expect(find.byKey(const ValueKey('dockPill')), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is ColoredBox && widget.color == AppColors.bg,
+      ),
+      findsOneWidget,
+    );
   });
 
   // The dock collapses to icons on scroll (DockScrollCollapse). Two things a
