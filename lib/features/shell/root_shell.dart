@@ -626,6 +626,8 @@ class _FloatingDock extends StatelessWidget {
         key: const ValueKey('dockPill'),
         borderRadius: BorderRadius.circular(26),
         opacity: 0.55,
+        blur: true,
+        blurSigma: 14,
         padding: EdgeInsets.symmetric(horizontal: 6, vertical: pillPad),
         child: Row(
           children: [

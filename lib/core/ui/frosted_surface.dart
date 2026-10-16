@@ -46,10 +46,8 @@ class FrostedSurface extends StatelessWidget {
   }
 }
 
-/// Frosted-glass *look* with zero per-frame cost: a static sheen gradient
-/// over the surface color. Unlike [FrostedSurface] with blur on, nothing here
-/// samples the pixels behind it, so it never repaints while content scrolls
-/// underneath. Use for bars and headers that live over scrolling content.
+/// Frosted-glass look from a static sheen. By default it does not sample the
+/// pixels behind it; [blur] opts into one clipped live blur for fixed chrome.
 class FakeFrost extends StatelessWidget {
   const FakeFrost({
     super.key,
@@ -57,16 +55,38 @@ class FakeFrost extends StatelessWidget {
     this.borderRadius,
     this.opacity = 0.85,
     this.padding,
+    this.blur = false,
+    this.blurSigma = 18,
   });
   final Widget child;
   final BorderRadius? borderRadius;
   final double opacity;
   final EdgeInsetsGeometry? padding;
+  final bool blur;
+  final double blurSigma;
 
   @override
   Widget build(BuildContext context) {
     final r = borderRadius ?? BorderRadius.zero;
     final base = AppColors.surface.withValues(alpha: opacity);
+    final surface = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.alphaBlend(Colors.white.withValues(alpha: 0.07), base),
+            base,
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.14),
+          width: 0.5,
+        ),
+      ),
+      child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
+    );
     return RepaintBoundary(
       // Shadow lives OUTSIDE the clip: inside, the rounded cut would eat it.
       // It paints once with the bar (never samples scrolling content).
@@ -83,27 +103,15 @@ class FakeFrost extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: r,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: r,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                // Whisper of sheen up top, untouched surface below: the wash
-                // was flattening dark art into grey. Edge light carries the
-                // glass read instead.
-                colors: [
-                  Color.alphaBlend(Colors.white.withValues(alpha: 0.07), base),
-                  base,
-                ],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.14),
-                width: 0.5,
-              ),
-            ),
-            child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
-          ),
+          child: blur
+              ? BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: blurSigma,
+                    sigmaY: blurSigma,
+                  ),
+                  child: surface,
+                )
+              : surface,
         ),
       ),
     );
