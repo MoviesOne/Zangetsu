@@ -46,8 +46,11 @@ import 'root_shell_tv.dart';
 /// (re)selected on TV so the embedded search screen can auto-focus its
 /// field. Phone has no Search dock tab any more — Search moved to a Home
 /// header icon — so [RootShell] always passes null here.
-List<Widget> buildShellPages(ValueNotifier<int>? searchFocusSignal) => [
-  const HomeScreen(),
+List<Widget> buildShellPages(
+  ValueNotifier<int>? searchFocusSignal, {
+  bool homeIsActive = true,
+}) => [
+  HomeScreen(isTabActive: homeIsActive),
   SearchScreen(showBack: false, focusSignal: searchFocusSignal),
   const MyListScreen(),
   const SettingsScreen(),
@@ -268,7 +271,7 @@ class _RootShellState extends State<RootShell>
   /// Search is no longer a phone dock tab (it's a Home header icon now), so
   /// this never places `shared[1]`. The Profile dock item opens Settings.
   List<Widget> _pagesFor(List<DockTab> tabs, String profileId) {
-    final shared = buildShellPages(null);
+    final shared = buildShellPages(null, homeIsActive: _tab == DockTab.home);
     return [
       for (final t in tabs)
         KeyedSubtree(
