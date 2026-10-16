@@ -77,11 +77,12 @@ class ModeBar extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            // Fake frost instead of a live backdrop blur (see FakeFrost):
-            // same glassy read at rest, zero repaint cost on scroll.
+            // Match the bottom dock's glass while this selector is visible.
             child: FakeFrost(
               borderRadius: BorderRadius.circular(20),
-              opacity: 0.7,
+              opacity: 0.55,
+              blur: true,
+              blurSigma: 14,
               padding: const EdgeInsets.all(6),
               child: Row(
                 children: [
