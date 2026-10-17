@@ -784,7 +784,12 @@ class _HomeViewState extends State<_HomeView>
           final actions = [
             _headerDownloadButton(edgeBanner: edgeBanner),
             _notificationBell(context, edgeBanner: edgeBanner),
-            HomeSearchAction(edgeBanner: edgeBanner),
+            HomeSearchAction(
+              edgeBanner: edgeBanner,
+              fixedSourceId: _sourceCatalogueSelected
+                  ? _sourceCatalogueSourceId
+                  : null,
+            ),
           ];
 
           return Padding(
@@ -2103,13 +2108,17 @@ class _HomeViewState extends State<_HomeView>
 }
 
 /// Opens [SearchScreen] — the primary way into search now that it's off the
-/// dock. Shown regardless of Z Mode: [SearchScreen] itself already switches
-/// between the metadata catalogue and the active source, so the header icon
-/// that reaches it doesn't need to.
+/// dock. Normally Search follows Z Mode; Home passes [fixedSourceId] when its
+/// Source Catalogue is selected so the query stays on that source.
 class HomeSearchAction extends StatelessWidget {
-  const HomeSearchAction({super.key, this.edgeBanner = false});
+  const HomeSearchAction({
+    super.key,
+    this.edgeBanner = false,
+    this.fixedSourceId,
+  });
 
   final bool edgeBanner;
+  final String? fixedSourceId;
 
   @override
   Widget build(BuildContext context) {
@@ -2121,9 +2130,11 @@ class HomeSearchAction extends StatelessWidget {
       ),
       tooltip: context.l10n.search,
       style: edgeBanner ? _edgeHeaderButtonStyle() : null,
-      onPressed: () => Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const SearchScreen())),
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SearchScreen(fixedSourceId: fixedSourceId),
+        ),
+      ),
     );
   }
 }
