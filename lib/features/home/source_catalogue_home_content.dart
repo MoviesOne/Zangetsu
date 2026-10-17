@@ -275,35 +275,63 @@ class SourceCatalogueHomeContentState
           )
         else ...[
           if (widget.showSourcePicker) _sourcePicker(),
-          // Shimmer rows, same as every other Home load — a lone spinner here read as
-          // "broken" next to the rest of the feed.
-          if (_loading && _sections == null) ...[
-            for (var i = 0; i < 3; i++) _shimmerRow(),
-          ] else if (_failed)
-            _emptyState(
-              icon: Icons.cloud_off_outlined,
-              title: 'Could not load this catalogue',
-              message: 'Check your connection and try again.',
-              action: () => _load(reset: true),
-              actionLabel: 'Try again',
-            )
-          else if (!_loading && sections.isEmpty)
-            _emptyState(
-              icon: Icons.movie_filter_outlined,
-              title: 'No titles to show',
-              message: 'This source did not return any home lists.',
-              action: () => _load(reset: true),
-              actionLabel: 'Refresh',
-            )
-          else ...[
-            for (final section
-                in widget.sectionBuilder == null
-                    ? sections
-                    : providerRowSections(sections, isTv: false))
-              widget.sectionBuilder?.call(section) ?? _sectionRow(section),
-            if (_loading) _shimmerRow(),
-          ],
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: _catalogueContent(sections),
+          ),
         ],
+      ],
+    );
+  }
+
+  Widget _catalogueContent(List<HomeSection> sections) {
+    if (_loading && _sections == null) {
+      return Column(
+        key: ValueKey('source-catalogue-loading:$_sourceId'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [for (var i = 0; i < 3; i++) _shimmerRow()],
+      );
+    }
+    if (_failed) {
+      return Column(
+        key: ValueKey('source-catalogue-failed:$_sourceId'),
+        children: [
+          _emptyState(
+            icon: Icons.cloud_off_outlined,
+            title: 'Could not load this catalogue',
+            message: 'Check your connection and try again.',
+            action: () => _load(reset: true),
+            actionLabel: 'Try again',
+          ),
+        ],
+      );
+    }
+    if (!_loading && sections.isEmpty) {
+      return Column(
+        key: ValueKey('source-catalogue-empty:$_sourceId'),
+        children: [
+          _emptyState(
+            icon: Icons.movie_filter_outlined,
+            title: 'No titles to show',
+            message: 'This source did not return any home lists.',
+            action: () => _load(reset: true),
+            actionLabel: 'Refresh',
+          ),
+        ],
+      );
+    }
+    return Column(
+      key: const ValueKey('source-catalogue-content-results'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final section
+            in widget.sectionBuilder == null
+                ? sections
+                : providerRowSections(sections, isTv: false))
+          widget.sectionBuilder?.call(section) ?? _sectionRow(section),
+        if (_loading) _shimmerRow(),
       ],
     );
   }

@@ -369,6 +369,22 @@ void main() {
         ],
       ),
     ]);
+
+    await tester.pump();
+    final loadedState = find.byKey(
+      const ValueKey('source-catalogue-content-results'),
+    );
+    expect(loadedState, findsOneWidget);
+    final fade = find
+        .ancestor(of: loadedState, matching: find.byType(FadeTransition))
+        .first;
+    expect(tester.widget<FadeTransition>(fade).opacity.value, 0);
+
+    await tester.pump(const Duration(milliseconds: 75));
+    final halfwayOpacity = tester.widget<FadeTransition>(fade).opacity.value;
+    expect(halfwayOpacity, greaterThan(0));
+    expect(halfwayOpacity, lessThan(1));
+
     await tester.pumpAndSettle();
 
     expect(find.byType(RowSkeleton), findsNothing);
