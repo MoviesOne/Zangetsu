@@ -10,8 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/tv/tv_list_focusable.dart';
 
-const _telegramUrl = 'https://t.me/ZangetsuStream';
-const _discordUrl = kDiscordInviteUrl;
+const _telegramUrl = 'https://t.me/MoviesOnex1';
 const _flagsBox = 'app_flags';
 const _seenKey = 'communitySheetSeen';
 
@@ -100,7 +99,7 @@ class _CommunitySheet extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    'Join the Zangetsu community',
+                    'Join the MoviesOne community',
                     style: AppText.headline.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w700,
@@ -121,22 +120,13 @@ class _CommunitySheet extends StatelessWidget {
             _linkButton(
               context,
               icon: Icons.send_rounded,
-              label: 'Telegram  ·  @ZangetsuStream',
+              label: 'Telegram  ·  @MoviesOnex1',
               color: const Color(0xFF229ED9),
               url: _telegramUrl,
               autofocus: isTv, // first button gets D-pad focus on TV
               isTv: isTv,
             ),
-            const SizedBox(height: 12),
-            _linkButton(
-              context,
-              icon: Icons.forum_rounded,
-              label: 'Discord',
-              color: const Color(0xFF5865F2),
-              url: _discordUrl,
-              autofocus: false,
-              isTv: isTv,
-            ),
+
             const SizedBox(height: 6),
             Center(child: _laterButton(context, isTv: isTv)),
           ],

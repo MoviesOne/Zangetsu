@@ -123,7 +123,7 @@ import '../cast/cast_controller.dart';
 import '../cast/cast_proxy.dart';
 import '../supabase/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show OtpType;
-
+import '../aniyomi/aniyomi_repo.dart';
 final GetIt sl = GetIt.instance;
 
 /// TV-only deferred boot work. Must not run during [initDependencies] on
@@ -703,7 +703,15 @@ Future<void> initDependencies() async {
   if (!Hive.isBoxOpen('lnreader_repos')) {
     await openBoxSafely<String>('lnreader_repos');
   }
+  final lnRepos = Hive.box<String>('lnreader_repos');
 
+  const defaultLnRepo =
+      'https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json';
+
+  if (!lnRepos.values.contains(defaultLnRepo)) {
+    await lnRepos.add(defaultLnRepo);
+    debugPrint('[LNReader] Default repo added');
+  }
   // --- Provider registry data layer ---------------------------------
   await ProviderReposRegistry.init();
   await ProviderRegistry.init();
@@ -756,6 +764,73 @@ Future<void> initDependencies() async {
   // legacy `bundled://` entries left by older installs, then load the
   // repo-installed providers persisted from previous launches.
   await registry.purgeBundled();
+
+  const defaultRepoUrl =
+      'https://raw.githubusercontent.com/Spyou/zangetsu-providers/main/index.json';
+
+  Future<void> syncDefaultProviderRepo() async {
+    try {
+      final repo = await repos.fetchAndCache(defaultRepoUrl);
+
+      for (final source in repo.sources) {
+        try {
+          if (source.id.isEmpty || source.file.isEmpty) continue;
+
+          if (source.type != 'anime' && source.type != 'movie') {
+            continue;
+          }
+
+          final fileUrl =
+          repos.resolveFileUrl(repo, source);
+          final logoUrl =
+              ProviderReposRegistry.resolveLogoUrl(repo, source) ?? '';
+
+          ProviderRegistryEntry? existing;
+
+          for (final entry in registry.getAll()) {
+            if (entry.originRepoUrl == defaultRepoUrl &&
+                entry.name == source.id) {
+              existing = entry;
+              break;
+            }
+          }
+
+          if (existing == null) {
+            await registry.install(
+              sourceId: source.id,
+              fileUrl: fileUrl,
+              repoUrl: defaultRepoUrl,
+              displayName: source.name,
+              version: source.version,
+              logoUrl: logoUrl,
+            );
+          } else if (
+          isProviderVersionNewer(source.version, existing.version) ||
+              existing.url != fileUrl
+          ) {
+            await registry.install(
+              sourceId: source.id,
+              fileUrl: fileUrl,
+              repoUrl: defaultRepoUrl,
+              displayName: source.name,
+              version: source.version,
+              logoUrl: logoUrl,
+              force: true,
+            );
+          }
+        } catch (e) {
+          debugPrint('[ProviderRepoSync] Failed ${source.id}: $e');
+        }
+      }
+
+      debugPrint('[ProviderRepoSync] Repo sync completed');
+    } catch (e) {
+      debugPrint('[ProviderRepoSync] Repo unavailable: $e');
+    }
+  }
+
+  await syncDefaultProviderRepo();
+
   // Load repo-installed JS providers into the runtime. Bounded so a provider
   // whose JS HANGS (flutter_js can deadlock) can't trap the splash — the
   // reported "stuck on the splash for minutes":
@@ -835,19 +910,74 @@ Future<void> initDependencies() async {
       if (!Hive.isBoxOpen('aniyomi_repos')) {
         await openBoxSafely<String>('aniyomi_repos');
       }
+
+      final aniyomiRepos = Hive.box<String>('aniyomi_repos');
+      const defaultAniyomiRepo =
+          'https://raw.githubusercontent.com/yuzono/anime-repo/repo/index.min.json';
+
+      if (!aniyomiRepos.values.contains(defaultAniyomiRepo)) {
+        await aniyomiRepos.add(defaultAniyomiRepo);
+        debugPrint('[Aniyomi] Default repo added');
+      }
+
       // Icon URLs picked up from repo indexes, read synchronously by the
       // source picker. Shared with Mihon.
       if (!Hive.isBoxOpen(SourceIconStore.boxName)) {
         await openBoxSafely<String>(SourceIconStore.boxName);
       }
-      final box = Hive.box<dynamic>(AniyomiExtensionService.installedBoxName);
-      if (box.isEmpty) {
-        return; // nothing installed yet
-      }
+      final box = Hive.box<dynamic>(
+        AniyomiExtensionService.installedBoxName,
+      );
+
       final support = await getWritableAppDirectory();
       final aniyomiDir = Directory('${support.path}/aniyomi');
       final service = AniyomiExtensionService();
-      await service.loadInstalled(aniyomiDir.path);
+
+// Restore existing extensions first.
+// First launch par box empty ho sakta hai, which is okay.
+      if (box.isNotEmpty) {
+        await service.loadInstalled(aniyomiDir.path);
+      }
+
+// Fetch the configured repo and install missing packages sequentially.
+      for (final repoUrl in aniyomiRepos.values.toList()) {
+        try {
+          final entries = await AniyomiRepo.fetchIndex(repoUrl);
+
+          for (final entry in entries) {
+            if (entry.pkg.isEmpty || box.containsKey(entry.pkg)) {
+              continue;
+            }
+
+            try {
+              final installed = await service.installFromRepo(
+                entry,
+                manager: aniyomiManager,
+              );
+
+              if (installed.isNotEmpty) {
+                debugPrint(
+                  '[Aniyomi] Installed ${entry.name} (${entry.pkg})',
+                );
+              } else {
+                debugPrint(
+                  '[Aniyomi] Install failed or no sources: '
+                      '${entry.name} (${entry.pkg})',
+                );
+              }
+            } catch (e) {
+              debugPrint(
+                '[Aniyomi] Failed ${entry.pkg}: $e',
+              );
+            }
+          }
+        } catch (e, st) {
+          debugPrint(
+            '[Aniyomi] Repo fetch failed ($repoUrl): $e\n$st',
+          );
+        }
+      }
+
       final sources = await service.listSources();
       final providers = sources.map((s) => AniyomiProvider(info: s)).toList();
       aniyomiManager.registerAll(providers);
@@ -901,18 +1031,75 @@ Future<void> initDependencies() async {
       if (!Hive.isBoxOpen('mihon_repos')) {
         await openBoxSafely<String>('mihon_repos');
       }
+      final mihonRepos = Hive.box<String>('mihon_repos');
+
+      const defaultMihonRepo =
+          'https://raw.githubusercontent.com/keiyoushi/extensions/repo';
+
+      if (!mihonRepos.values.contains(defaultMihonRepo)) {
+        await mihonRepos.add(defaultMihonRepo);
+        debugPrint('[Mihon] Default repo added');
+      }
       if (!Hive.isBoxOpen(SourceIconStore.boxName)) {
         await openBoxSafely<String>(SourceIconStore.boxName);
       }
-      final box = Hive.box<dynamic>(MihonExtensionService.installedBoxName);
-      if (box.isEmpty) {
-        return; // nothing installed yet
-      }
+
+      final box = Hive.box<dynamic>(
+        MihonExtensionService.installedBoxName,
+      );
       final support = await getWritableAppDirectory();
       final mihonDir = Directory('${support.path}/mihon');
       final service = MihonExtensionService();
-      await service.loadInstalled(mihonDir.path);
+
+// Restore installed extensions first.
+      if (box.isNotEmpty) {
+        await service.loadInstalled(mihonDir.path);
+      }
+
+// Auto-install up to 5 English extensions in total.
+      if (box.length < 5) {
+        for (final repoUrl in mihonRepos.values.toList()) {
+          if (box.length >= 5) break;
+
+          try {
+            final entries = await MihonRepo.fetchIndex(repoUrl);
+
+            for (final entry in entries) {
+              if (box.length >= 5) break;
+
+              if (entry.pkg.isEmpty ||
+                  box.containsKey(entry.pkg) ||
+                  entry.lang.toLowerCase() != 'en') {
+                continue;
+              }
+
+              try {
+                final installed = await service.installFromRepo(
+                  entry,
+                  manager: mihonManager,
+                );
+
+                if (installed.isNotEmpty) {
+                  debugPrint(
+                    '[Mihon] Auto-installed English extension: '
+                        '${entry.name} (${entry.pkg})',
+                  );
+                }
+              } catch (e) {
+                debugPrint(
+                  '[Mihon] Auto-install failed for ${entry.pkg}: $e',
+                );
+              }
+            }
+          } catch (e) {
+            debugPrint('[Mihon] Repo fetch failed ($repoUrl): $e');
+          }
+        }
+      }
+
+// Reload sources after the installation attempts.
       final sources = await service.listSources();
+
       final providers = sources.map((s) => MihonProvider(info: s)).toList();
       mihonManager.registerAll(providers);
       // Nothing else reads a Mihon repo index at launch — Aniyomi gets its
@@ -1100,6 +1287,41 @@ Future<void> initDependencies() async {
   Future.microtask(() async {
     try {
       await csManager.loadInstalled();
+
+
+      const defaultCsRepos = <String>[
+        'https://raw.githubusercontent.com/recloudstream/extensions/master/repo.json',
+      ];
+
+
+      for (final url in defaultCsRepos) {
+        try {
+          if (!csManager.hasRepo(url)) {
+            await csManager.addRepo(url);
+          }
+        } catch (e) {
+          debugPrint('[cloudstream] Default repo add failed ($url): $e');
+        }
+      }
+
+      // Auto-install plugins advertised by the configured CloudStream repo.
+      // Each plugin is attempted sequentially; failures do not stop the rest.
+      for (final url in defaultCsRepos) {
+        try {
+          final result = await csManager.installAllFromRepo(url);
+          debugPrint(
+            '[cloudstream] Auto-install result for $url: '
+                'installed=${result['installed']}, '
+                'skipped=${result['skipped']}, '
+                'failed=${result['failed']}',
+          );
+        } catch (e, st) {
+          debugPrint(
+            '[cloudstream] Auto-install failed for $url: $e\n$st',
+          );
+        }
+      }
+
       // Honor a saved `cs:` active source that wasn't loaded yet at boot
       // (ActiveSourceCubit fell back to a JS source). reapplySaved only swaps
       // when the saved id is now valid — it never resets an already-restored
@@ -1114,6 +1336,62 @@ Future<void> initDependencies() async {
       }
     } catch (e, st) {
       debugPrint('[cloudstream] deferred load failed (non-fatal): $e\n$st');
+    }
+  });
+  // LNReader: auto-install up to 5 English plugins.
+  Future.microtask(() async {
+    try {
+      final installed = lnrService.installed();
+      final installedIds = installed.map((p) => p.id).toSet();
+
+      if (installedIds.length >= 5) {
+        debugPrint(
+          '[LNReader] Already have ${installedIds.length} plugins.',
+        );
+        return;
+      }
+
+      for (final repoUrl in lnRepos.values.toList()) {
+        if (installedIds.length >= 5) break;
+
+        try {
+          final plugins = await lnrService.fetchIndex(repoUrl);
+
+          for (final plugin in plugins) {
+            if (installedIds.length >= 5) break;
+
+            if (plugin.id.isEmpty ||
+                installedIds.contains(plugin.id) ||
+                plugin.lang.toLowerCase() != 'en') {
+              continue;
+            }
+
+            try {
+              await lnrService.install(plugin);
+              installedIds.add(plugin.id);
+
+              debugPrint(
+                '[LNReader] Installed English plugin: '
+                    '${plugin.name} (${plugin.id})',
+              );
+            } catch (e) {
+              debugPrint(
+                '[LNReader] Install failed for ${plugin.id}: $e',
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint('[LNReader] Repo fetch failed ($repoUrl): $e');
+        }
+      }
+
+      debugPrint(
+        '[LNReader] Auto-install complete. '
+            'English plugins installed or already present: '
+            '${installedIds.length}',
+      );
+    } catch (e, st) {
+      debugPrint('[LNReader] Auto-install failed: $e\n$st');
     }
   });
 }

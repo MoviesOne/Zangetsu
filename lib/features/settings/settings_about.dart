@@ -14,10 +14,8 @@ class AboutSettingsScreen extends StatefulWidget {
 }
 
 class _AboutSettingsScreenState extends State<AboutSettingsScreen> {
-  static const String _websiteUrl = 'https://zangetsu.online';
-  static const String _telegramUrl = 'https://t.me/+9mQlsdvDlo83Mjk1';
-  static const String _discordUrl = kDiscordInviteUrl;
-  static const String _githubUrl = 'https://github.com/Spyou/Zangetsu';
+  static const String _websiteUrl = 'https://moviesone.sbs/';
+  static const String _telegramUrl = 'https://t.me/MoviesOnex1';
 
   final UpdateService _updateService = UpdateService();
   bool _betaUpdates = false;
@@ -52,43 +50,27 @@ class _AboutSettingsScreenState extends State<AboutSettingsScreen> {
           const _ProfileCard(),
           const SizedBox(height: 24),
           // Contributors — above Social, opens the full list.
-          SettingsCard(
-            children: [
-              SettingsTile(
-                autofocus: true,
-                icon: Icons.group_rounded,
-                title: context.l10n.contributors,
-                onTap: () => _push(const ContributorsScreen()),
-              ),
-            ],
-          ),
+
           SettingsSectionLabel(context.l10n.social, muted: true),
           SettingsCard(
             children: [
-              SettingsTile(
-                icon: Icons.language_rounded,
-                title: context.l10n.website,
-                subtitle: 'zangetsu.online',
-                onTap: () => _open(_websiteUrl),
+              SettingsCard(
+                children: [
+                  SettingsTile(
+                    icon: Icons.language_rounded,
+                    title: 'Website',
+                    subtitle: 'moviesone.sbs',
+                    onTap: () => _open(_websiteUrl),
+                  ),
+                  SettingsTile(
+                    icon: Icons.send_rounded,
+                    title: 'Telegram',
+                    subtitle: '@MoviesOnex1',
+                    onTap: () => _open(_telegramUrl),
+                  ),
+                ],
               ),
-              SettingsTile(
-                icon: Icons.send_rounded,
-                title: context.l10n.telegram,
-                subtitle: context.l10n.communityChat,
-                onTap: () => _open(_telegramUrl),
-              ),
-              SettingsTile(
-                icon: Icons.discord,
-                title: context.l10n.discord,
-                subtitle: context.l10n.joinTheServer,
-                onTap: () => _open(_discordUrl),
-              ),
-              SettingsTile(
-                icon: Icons.code_rounded,
-                title: context.l10n.github,
-                subtitle: context.l10n.viewTheSourceCode,
-                onTap: () => _open(_githubUrl),
-              ),
+
             ],
           ),
           SettingsSectionLabel(context.l10n.appSection, muted: true),
@@ -132,12 +114,7 @@ class _AboutSettingsScreenState extends State<AboutSettingsScreen> {
                   },
                 ),
               ),
-              SettingsTile(
-                icon: Icons.favorite_border_rounded,
-                title: context.l10n.supportTheApp,
-                subtitle: context.l10n.buyMeACoffee,
-                onTap: () => _push(const DonateScreen()),
-              ),
+
               if (sl.isRegistered<AppMode>() &&
                   sl<AppMode>().isTv &&
                   kExoSpikeEnabled)
@@ -175,7 +152,11 @@ class _ProfileCard extends StatelessWidget {
     return Column(
       children: [
         const SizedBox(height: 6),
-        Image.asset('assets/icon/logo_mark.png', height: 96),
+        Image.asset(
+          'assets/icon/app_icon.png',
+          height: 96,
+          fit: BoxFit.contain,
+        ),
         const SizedBox(height: 16),
         Text(kAppName, style: AppText.largeTitle.copyWith(fontSize: 25)),
         const SizedBox(height: 3),
@@ -184,7 +165,7 @@ class _ProfileCard extends StatelessWidget {
           style: AppText.caption.copyWith(color: AppColors.textTertiary),
         ),
         const SizedBox(height: 20),
-        const _DeveloperRow(),
+
       ],
     );
   }

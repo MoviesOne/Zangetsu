@@ -350,25 +350,35 @@ class ProviderRegistry {
     bool force = false,
   }) async {
     final resolvedRepo = repoUrl.isEmpty ? kBundledRepoUrl : repoUrl;
+    final key = providerKey(resolvedRepo, sourceId);
+    final rawExisting = _box.get(key);
+
+    final existing = rawExisting == null
+        ? null
+        : ProviderRegistryEntry.fromJson(
+      Map<String, dynamic>.from(rawExisting),
+    );
+
     final entry = ProviderRegistryEntry(
       name: sourceId,
       url: fileUrl,
       version: version,
+      enabled: existing?.enabled ?? true,
       originRepoUrl: resolvedRepo,
       displayName: displayName,
       logoUrl: logoUrl,
     );
-    await _box.put(providerKey(resolvedRepo, sourceId), entry.toJson());
-    // Logged because installing was previously silent: a shared log showed the
-    // source count jump from 0 to 58 with nothing to explain it, which reads
-    // like a boot bug rather than someone restoring a backup. A restore comes
-    // through here too, one line per provider.
+
+    await _box.put(key, entry.toJson());
+
     debugPrint(
-      '[ProviderRegistry] installed $sourceId v$version from $resolvedRepo',
+      '[ProviderRegistry] synced $sourceId v$version from $resolvedRepo',
     );
-    // [force] bypasses the JS cache (and busts the CDN edge) so an Update
-    // actually pulls the new code; a fresh install has nothing cached anyway.
-    await _loadEntryIntoRuntime(entry, force: force);
+
+    if (entry.enabled) {
+      await _loadEntryIntoRuntime(entry, force: force);
+    }
+
     return entry;
   }
 

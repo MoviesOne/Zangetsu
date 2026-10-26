@@ -1260,6 +1260,68 @@ class CloudStreamManager extends ChangeNotifier {
     }
   }
 
+  /// Installs plugins listed in the saved catalog for one repo.
+  /// Skips plugins already installed from that repo and continues on errors.
+  Future<Map<String, int>> installAllFromRepo(String repoUrl) async {
+    if (!Platform.isAndroid || repoUrl.isEmpty) {
+      return {'installed': 0, 'skipped': 0, 'failed': 0};
+    }
+
+    final repo = _repos.firstWhere(
+          (r) => (r['url'] ?? '').toString() == repoUrl,
+      orElse: () => <String, dynamic>{},
+    );
+
+    // If the repo has not been loaded, refresh it first.
+    if (repo.isEmpty) {
+      await addRepo(repoUrl);
+    }
+
+    final currentRepo = _repos.firstWhere(
+          (r) => (r['url'] ?? '').toString() == repoUrl,
+      orElse: () => <String, dynamic>{},
+    );
+
+    final catalog = _catalogOf(currentRepo);
+    var installed = 0;
+    var skipped = 0;
+    var failed = 0;
+
+    for (final plugin in catalog) {
+      if (plugin.internalName.isEmpty || plugin.url.isEmpty) {
+        failed++;
+        continue;
+      }
+
+      if (isPluginInstalled(plugin.internalName, repoUrl: repoUrl)) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await installPlugin(plugin, repoUrl: repoUrl);
+        installed++;
+      } catch (e) {
+        failed++;
+        debugPrint(
+          '[cloudstream] Auto-install failed for '
+              '${plugin.internalName}: $e',
+        );
+      }
+    }
+
+    debugPrint(
+      '[cloudstream] Auto-install complete: '
+          'installed=$installed, skipped=$skipped, failed=$failed',
+    );
+
+    return {
+      'installed': installed,
+      'skipped': skipped,
+      'failed': failed,
+    };
+  }
+
   /// Uninstalls one plugin and its sources — repo-scoped via [repoUrl], so a
   /// same-named plugin from another repo is left intact. Rebuilds.
   Future<void> uninstallPlugin(

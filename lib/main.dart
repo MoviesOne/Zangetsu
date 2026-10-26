@@ -655,30 +655,11 @@ class _WatchAppState extends State<WatchApp> with WidgetsBindingObserver {
     }
   }
 
+
   Widget _buildShellHome() {
-    final onboarded = _onboardedOverride ?? isOnboarded();
-    return onboarded
-        ? ProfileLaunchGate(child: RootShell())
-        : OnboardingScreen(
-            onDone: () {
-              setState(() => _onboardedOverride = true);
-              if (isAppleTv) {
-                // The Navigator retains its initial _TvBootGate route. Its
-                // boolean is already true, so parent setState alone cannot
-                // replace the Onboarding child; notify the mounted gate again.
-                _tvShellGate
-                  ..value = false
-                  ..value = true;
-              } else {
-                rootNavigatorKey.currentState?.pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ProfileLaunchGate(child: RootShell()),
-                  ),
-                );
-              }
-            },
-          );
+    return ProfileLaunchGate(child: RootShell());
   }
+
 
   /// Swaps the splash route for the real shell (phone / Android TV only).
   void _pushShellRouteIfNeeded() {
